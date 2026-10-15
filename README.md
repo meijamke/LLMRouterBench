@@ -30,6 +30,7 @@
 
 ## News
 
+- **September 2026**: Our new paper, [**RSI-Router: Evolving Subtask-Level LLM Routing and Skills for Cost-Efficient Agents**](https://arxiv.org/abs/2609.34712), is now available on arXiv!
 - **April 2026**: 🎉🎉🎉 This paper has been accepted to **Findings of ACL 2026**!
 
 ---
@@ -552,6 +553,12 @@ This work is part of our series of studies on LLM routing; if you're interested,
   journal      = {arXiv preprint arXiv:2510.00844},
   year         = {2025},
   url          = {https://arxiv.org/abs/2510.00844v1}
+}
+@article{li2026rsi,
+  title        = {RSI-Router: Evolving Subtask-Level LLM Routing and Skills for Cost-Efficient Agents},
+  author       = {Li, Hao and Zhang, Hangfan and Cui, Zhiyao and Mu, Chunjiang and Zhang, Yiqun and Zhang, Bo and Jia, Danyang and Hu, Shuyue},
+  journal      = {arXiv preprint arXiv:2609.34712},
+  year         = {2026}
 }
 ```
 
