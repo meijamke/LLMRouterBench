@@ -19,6 +19,8 @@ baseline:
       - split
       - model_name
       - record_index
+      - category
+      - origin_query
       - prompt
       - score
       - cost
