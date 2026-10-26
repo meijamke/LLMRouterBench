@@ -27,7 +27,7 @@ class BaseEvaluator(ABC):
         )
     
     def load_jsonl(self, file_path: str) -> List[Dict]:
-        with open(file_path, "r") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             data = [json.loads(line) for line in f]
         return data
     

@@ -34,6 +34,8 @@ from evaluation.SimpleQA import SimpleQAEvaluator
 from evaluation.StudentEval import StudentEvalEvaluator
 from evaluation.TruthfulQA import TruthfulQAEvaluator
 from evaluation.Winogrande import WinograndeEvaluator
+from evaluation.GSM8K import GSM8KEvaluator
+from evaluation.MMLU import MMLUEvaluator
 
 
 class Benchmark(Enum):
@@ -43,9 +45,11 @@ class Benchmark(Enum):
     AIME2025 = 'aime2025'
     AIME = 'aime'
     MATH500 = 'math500'
+    GSM8K = 'gsm8k'
     LIVEMATHBENCH = 'livemathbench'
     # mmlu
     MMLUPro = 'mmlupro'
+    MMLU = 'mmlu'
     # emotion
     EmoryNLP = 'emorynlp'
     MELD = 'meld'
@@ -111,6 +115,8 @@ class EvaluatorFactory:
         # MATH
         elif task == Benchmark.MATH500:
             return MATH500Evaluator()
+        elif task == Benchmark.GSM8K:
+            return GSM8KEvaluator()
         # MATHBENCH
         elif task == Benchmark.MATHBENCH:
             return MathBenchEvaluator()
@@ -120,6 +126,8 @@ class EvaluatorFactory:
         # MMLUPro
         elif task == Benchmark.MMLUPro:
             return MMLUProEvaluator(split="test")
+        elif task == Benchmark.MMLU:
+            return MMLUEvaluator(split="test")
         elif task == Benchmark.MedQA:
             return MedQAEvaluator()
         elif task == Benchmark.GPQA:

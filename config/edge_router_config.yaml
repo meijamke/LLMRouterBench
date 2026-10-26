@@ -1,0 +1,68 @@
+# LLMRouterBench 端侧路由扩展配置（SiliconFlow OpenAI 兼容 API）
+# 运行：python -m data_collector.cli run config/edge_router_config.yaml -y
+
+models:
+  - name: Qwen3.5-4B                    # 目录/run_key 名，不能含斜杠
+    api_model_name: Qwen/Qwen3.5-4B
+    base_url: https://api.siliconflow.cn/v1
+    api_key: SILICONFLOW_API_KEY
+    generator_type: direct
+    extra_body:
+      enable_thinking: false
+    pricing:
+      prompt_price_per_million: 0.0
+      completion_price_per_million: 0.0
+
+  - name: Qwen3-8B
+    api_model_name: Qwen/Qwen3-8B
+    base_url: https://api.siliconflow.cn/v1
+    api_key: SILICONFLOW_API_KEY
+    generator_type: direct
+    extra_body:
+      enable_thinking: false
+    pricing:
+      prompt_price_per_million: 0.0
+      completion_price_per_million: 0.0
+
+  - name: Qwen3-14B
+    api_model_name: Qwen/Qwen3-14B
+    base_url: https://api.siliconflow.cn/v1
+    api_key: SILICONFLOW_API_KEY
+    generator_type: direct
+    extra_body:
+      enable_thinking: false
+    pricing:
+      prompt_price_per_million: 0.5
+      completion_price_per_million: 2.0
+
+  - name: DeepSeek-V4.1-Flash
+    api_model_name: deepseek-ai/DeepSeek-V4.1-Flash
+    base_url: https://api.siliconflow.cn/v1
+    api_key: SILICONFLOW_API_KEY
+    generator_type: direct
+    pricing:
+      prompt_price_per_million: 2.0
+      completion_price_per_million: 8.0
+
+datasets:
+  - dataset_id: gpqa
+    splits: [test]
+  - dataset_id: mmlupro
+    splits: [test]
+  - dataset_id: math500
+    splits: [test]
+  - dataset_id: arcc
+    splits: [test]
+  - dataset_id: gsm8k
+    splits: [test]
+  - dataset_id: mmlu
+    splits: [test]
+
+run:
+  kind: bench
+  output_dir: results
+  overwrite: false
+  concurrency: 8
+  log_level: INFO
+  demo_mode: false
+  demo_limit: 10

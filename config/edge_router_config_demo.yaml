@@ -1,0 +1,68 @@
+# LLMRouterBench 端侧路由扩展 — DEMO 冒烟测试配置
+# 仅验证全链路，输出到独立目录，不污染正式 results/
+
+models:
+  - name: Qwen3.5-4B
+    api_model_name: Qwen/Qwen3.5-4B
+    base_url: https://api.siliconflow.cn/v1
+    api_key: SILICONFLOW_API_KEY
+    generator_type: direct
+    extra_body:
+      enable_thinking: false
+    pricing:
+      prompt_price_per_million: 0.0
+      completion_price_per_million: 0.0
+
+  - name: Qwen3-8B
+    api_model_name: Qwen/Qwen3-8B
+    base_url: https://api.siliconflow.cn/v1
+    api_key: SILICONFLOW_API_KEY
+    generator_type: direct
+    extra_body:
+      enable_thinking: false
+    pricing:
+      prompt_price_per_million: 0.0
+      completion_price_per_million: 0.0
+
+  - name: Qwen3-14B
+    api_model_name: Qwen/Qwen3-14B
+    base_url: https://api.siliconflow.cn/v1
+    api_key: SILICONFLOW_API_KEY
+    generator_type: direct
+    extra_body:
+      enable_thinking: false
+    pricing:
+      prompt_price_per_million: 0.5
+      completion_price_per_million: 2.0
+
+  - name: DeepSeek-V4.1-Flash
+    api_model_name: deepseek-ai/DeepSeek-V4.1-Flash
+    base_url: https://api.siliconflow.cn/v1
+    api_key: SILICONFLOW_API_KEY
+    generator_type: direct
+    pricing:
+      prompt_price_per_million: 2.0
+      completion_price_per_million: 8.0
+
+datasets:
+  - dataset_id: gpqa
+    splits: [test]
+  - dataset_id: mmlupro
+    splits: [test]
+  - dataset_id: math500
+    splits: [test]
+  - dataset_id: arcc
+    splits: [test]
+  - dataset_id: gsm8k
+    splits: [test]
+  - dataset_id: mmlu
+    splits: [test]
+
+run:
+  kind: bench
+  output_dir: results_demo
+  overwrite: true
+  concurrency: 6
+  log_level: INFO
+  demo_mode: true
+  demo_limit: 6

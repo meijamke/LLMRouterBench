@@ -42,7 +42,7 @@ class BaselineDataLoader:
         """
         if config_path:
             import yaml
-            with open(config_path, 'r') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 loaded_config = yaml.safe_load(f)
                 self.config = loaded_config.get('baseline', {})
         elif config:

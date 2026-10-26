@@ -1,0 +1,24 @@
+# 端侧模型路由 benchmark — baseline 数据加载配置
+# 读取官方存储格式的结果（results/bench），供 BaselineDataLoader + BaselineAggregator 使用。
+
+baseline:
+  results_dir: "results/bench"
+
+  filters:
+    skip_demo: true
+    datasets: null      # null = 加载全部（results/bench 里只有我的 6 数据集）
+    models: null        # null = 加载全部（我的 4 模型）
+    splits: null
+    exclude_datasets: null
+    exclude_models: null
+    exclude_splits: null
+
+  columns:
+    include:
+      - dataset_id
+      - split
+      - model_name
+      - record_index
+      - prompt
+      - score
+      - cost
