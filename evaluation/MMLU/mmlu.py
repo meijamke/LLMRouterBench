@@ -51,4 +51,4 @@ class MMLUEvaluator:
         pred = m[-1].upper() if m else ""
         is_correct = pred == data.get("answer", "")
         return {"prediction": pred, "ground_truth": data.get("answer", ""),
-                "is_correct": is_correct}
+                "is_correct": is_correct, "category": data.get("category", "")}

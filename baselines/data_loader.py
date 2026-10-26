@@ -252,6 +252,8 @@ class BaselineDataLoader:
                         return str(value)
 
                     # Create BaselineRecord
+                    extra_fields = record_data.get('extra_fields', {}) or {}
+                    category = normalize_to_string(extra_fields.get('category', ''))
                     record = BaselineRecord(
                         dataset_id=dataset_id,
                         split=split,
@@ -265,7 +267,8 @@ class BaselineDataLoader:
                         score=record_data['score'] if record_data.get('score') is not None else 0.0,
                         prompt_tokens=record_data.get('prompt_tokens', 0),
                         completion_tokens=record_data.get('completion_tokens', 0),
-                        cost=record_data.get('cost', 0.0)
+                        cost=record_data.get('cost', 0.0),
+                        category=category
                     )
 
                     yield record

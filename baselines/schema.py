@@ -36,6 +36,8 @@ class BaselineRecord:
         prompt_tokens: Number of tokens in the prompt
         completion_tokens: Number of tokens in the completion
         cost: API cost for this single record (in USD)
+        category: Subject/category of the sample (e.g. MMLU "high_school_mathematics");
+                  empty string when unavailable. Enables subject-granularity baselines.
     """
 
     # Identification
@@ -60,6 +62,9 @@ class BaselineRecord:
     prompt_tokens: int
     completion_tokens: int
     cost: float
+
+    # Subject (optional, for subject-granularity routing baselines)
+    category: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert record to dictionary."""

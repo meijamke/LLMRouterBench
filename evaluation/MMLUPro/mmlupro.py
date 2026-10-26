@@ -70,6 +70,7 @@ class MMLUProEvaluator(BaseEvaluator):
         return {
             "prediction": prediction,
             "ground_truth": answer,
-            "is_correct": is_correct
+            "is_correct": is_correct,
+            "category": data.get("category", "")
         }
     

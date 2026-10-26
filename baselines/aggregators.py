@@ -238,6 +238,145 @@ class BaselineAggregator:
 
         return max_expert_costs
 
+    def _category_expert_routing(self, exclude_models: Optional[List[str]] = None) -> Dict[Tuple[str, int], str]:
+        """
+        Route each sample to the best model for its subject/category (hindsight).
+
+        For each (dataset, category) group, choose the main model with the highest
+        average score (like Max Expert, but at subject granularity). Each sample
+        routes to its category's best model; when the sample has no category or the
+        category is unknown, fall back to the dataset-level best model.
+
+        This is an upper bound (hindsight): it uses ground-truth scores to build the
+        per-category table, so it is not a deployable router. It sits between
+        'Max Expert' (dataset granularity) and 'Oracle' (per-sample granularity).
+
+        Args:
+            exclude_models: Model names to exclude (e.g., reference models).
+
+        Returns:
+            Dict mapping (dataset_id, record_index) to the chosen model name.
+        """
+        exclude_set = set(exclude_models) if exclude_models else set()
+
+        # (dataset_key, category) -> {model_name: [scores]}
+        cat_scores = defaultdict(lambda: defaultdict(list))
+        for record in self.records:
+            if record.model_name in exclude_set:
+                continue
+            dataset_key = f"{record.dataset_id}/{record.split}"
+            cat_scores[(dataset_key, record.category or "")][record.model_name].append(record.score)
+
+        def _best_model(scores_by_model: Dict[str, List[float]]) -> str:
+            return max(
+                scores_by_model,
+                key=lambda m: (sum(scores_by_model[m]) / len(scores_by_model[m])) if scores_by_model[m] else float("-inf")
+            )
+
+        # Best model per (dataset, category)
+        cat_best = {key: _best_model(models) for key, models in cat_scores.items()}
+
+        # Best model per dataset (fallback, pooled over all categories)
+        ds_scores = defaultdict(lambda: defaultdict(list))
+        for (dataset_key, _cat), models in cat_scores.items():
+            for model_name, scores in models.items():
+                ds_scores[dataset_key][model_name].extend(scores)
+        ds_best = {dataset_key: _best_model(models) for dataset_key, models in ds_scores.items()}
+
+        # Route each sample once (category is identical across models for the same sample)
+        routing: Dict[Tuple[str, int], str] = {}
+        for record in self.records:
+            if record.model_name in exclude_set:
+                continue
+            dataset_key = f"{record.dataset_id}/{record.split}"
+            key = (dataset_key, record.record_index)
+            if key not in routing:
+                routing[key] = cat_best.get((dataset_key, record.category or "")) or ds_best.get(dataset_key, "")
+
+        return routing
+
+    def _compute_category_expert_stats(self, exclude_models: Optional[List[str]] = None) -> Dict[str, float]:
+        """
+        Category-Expert accuracy per dataset/split (subject-granularity upper bound).
+
+        Returns:
+            Dict mapping dataset_key (dataset_id/split) to accuracy.
+        """
+        routing = self._category_expert_routing(exclude_models)
+
+        exclude_set = set(exclude_models) if exclude_models else set()
+        score_lookup: Dict[Tuple[str, int, str], float] = {}
+        for record in self.records:
+            if record.model_name in exclude_set:
+                continue
+            dataset_key = f"{record.dataset_id}/{record.split}"
+            score_lookup[(dataset_key, record.record_index, record.model_name)] = record.score
+
+        correct = defaultdict(int)
+        total = defaultdict(int)
+        for (dataset_key, record_index), model_name in routing.items():
+            total[dataset_key] += 1
+            if score_lookup.get((dataset_key, record_index, model_name), 0.0) > 0:
+                correct[dataset_key] += 1
+
+        return {dataset_key: (correct[dataset_key] / total[dataset_key]) if total[dataset_key] else 0.0
+                for dataset_key in total}
+
+    def _compute_category_expert_cost_by_dataset(self, cost_metric: str = 'total_cost', exclude_models: Optional[List[str]] = None) -> Dict[str, float]:
+        """
+        Category-Expert cost per dataset/split.
+
+        For each sample, sum the cost of the model chosen by subject-granularity
+        routing (see _category_expert_routing).
+
+        Returns:
+            Dict mapping dataset_key (dataset_id/split) to cost.
+        """
+        if cost_metric not in ('total_cost', 'avg_cost_per_record'):
+            raise ValueError(f"Invalid cost_metric: {cost_metric}")
+
+        routing = self._category_expert_routing(exclude_models)
+
+        exclude_set = set(exclude_models) if exclude_models else set()
+        cost_lookup: Dict[Tuple[str, int, str], float] = {}
+        for record in self.records:
+            if record.model_name in exclude_set:
+                continue
+            dataset_key = f"{record.dataset_id}/{record.split}"
+            cost_lookup[(dataset_key, record.record_index, record.model_name)] = record.cost
+
+        cost = defaultdict(float)
+        total = defaultdict(int)
+        for (dataset_key, record_index), model_name in routing.items():
+            cost[dataset_key] += cost_lookup.get((dataset_key, record_index, model_name), 0.0)
+            total[dataset_key] += 1
+
+        if cost_metric == 'total_cost':
+            return {dataset_key: cost[dataset_key] for dataset_key in cost}
+        return {dataset_key: (cost[dataset_key] / total[dataset_key]) if total[dataset_key] else 0.0
+                for dataset_key in cost}
+
+    def _compute_category_expert_sample_avg(self, exclude_models: Optional[List[str]] = None) -> float:
+        """Overall sample-level accuracy of Category-Expert routing."""
+        routing = self._category_expert_routing(exclude_models)
+
+        exclude_set = set(exclude_models) if exclude_models else set()
+        score_lookup: Dict[Tuple[str, int, str], float] = {}
+        for record in self.records:
+            if record.model_name in exclude_set:
+                continue
+            dataset_key = f"{record.dataset_id}/{record.split}"
+            score_lookup[(dataset_key, record.record_index, record.model_name)] = record.score
+
+        correct = 0
+        total = 0
+        for (dataset_key, record_index), model_name in routing.items():
+            total += 1
+            if score_lookup.get((dataset_key, record_index, model_name), 0.0) > 0:
+                correct += 1
+
+        return correct / total if total else 0.0
+
     def _sample_random_router_once(self, random_seed: int = 42, exclude_models: Optional[List[str]] = None) -> Dict[Tuple[str, str, int], Dict[str, Any]]:
         """
         Sample random router once for all samples (global sampling).
@@ -955,6 +1094,11 @@ class BaselineAggregator:
         oracle_cost_row = pd.Series({col: oracle_costs.get(col, None) for col in cost_df.columns})
         cost_df.loc['Oracle'] = oracle_cost_row
 
+        # Add Category Expert cost row (subject-granularity static routing table)
+        category_expert_costs = self._compute_category_expert_cost_by_dataset(cost_metric=cost_metric, exclude_models=self.reference_models)
+        category_expert_cost_row = pd.Series({col: category_expert_costs.get(col, None) for col in cost_df.columns})
+        cost_df.loc['Category Expert'] = category_expert_cost_row
+
         # Add Max Expert row (best performance for each dataset) - only for MAIN performance table
         # Exclude AVG, Random Router, and reference models when calculating max
         if main_models:
@@ -969,12 +1113,18 @@ class BaselineAggregator:
         oracle_row = pd.Series({col: oracle_stats.get(col, None) for col in performance_df.columns})
         performance_df.loc['Oracle'] = oracle_row
 
+        # Add Category Expert row (subject-granularity static routing table upper bound)
+        category_expert_stats = self._compute_category_expert_stats(exclude_models=self.reference_models)
+        category_expert_row = pd.Series({col: category_expert_stats.get(col, None) for col in performance_df.columns})
+        performance_df.loc['Category Expert'] = category_expert_row
+
         # Compute sample-level averages for all rows
         # Exclude reference models from Oracle calculation
         sample_level_avg_dict = self._compute_sample_level_avg(
             sampled_data=random_router_sampled_data,
             exclude_models=self.reference_models
         )
+        sample_level_avg_dict['Category Expert'] = self._compute_category_expert_sample_avg(exclude_models=self.reference_models)
 
         # Compute separate averages for in-distribution and OOD datasets
         if ood_keys:
@@ -1119,6 +1269,11 @@ class BaselineAggregator:
             all_oracle_values = [oracle_stats.get(key) for key in ordered_columns if oracle_stats.get(key) is not None]
             performance_df.loc['Oracle', 'Dataset-Avg'] = sum(all_oracle_values) / len(all_oracle_values) if all_oracle_values else None
 
+        # Category Expert: compute dataset-level average (not sample-level)
+        if 'Category Expert' in performance_df.index:
+            category_expert_values = [category_expert_stats.get(key) for key in ordered_columns if category_expert_stats.get(key) is not None]
+            performance_df.loc['Category Expert', 'Dataset-Avg'] = sum(category_expert_values) / len(category_expert_values) if category_expert_values else None
+
         # Add Dataset-Sum column for cost (sum across all datasets for each model)
         # First compute for actual models
         for model in main_models + ref_models:
@@ -1142,11 +1297,17 @@ class BaselineAggregator:
             else:
                 cost_df.loc['Oracle', 'Dataset-Sum'] = sum(oracle_costs.values()) / len(oracle_costs) if oracle_costs else None
 
+        if 'Category Expert' in cost_df.index:
+            if cost_metric == 'total_cost':
+                cost_df.loc['Category Expert', 'Dataset-Sum'] = sum(category_expert_costs.values())
+            else:
+                cost_df.loc['Category Expert', 'Dataset-Sum'] = sum(category_expert_costs.values()) / len(category_expert_costs) if category_expert_costs else None
+
         # Add Sample-Avg column (weighted by sample count across all datasets)
         performance_df['Sample-Avg'] = performance_df.index.map(lambda x: sample_level_avg_dict.get(x))
 
         # Reorder rows: main models -> aggregate rows -> reference models
-        aggregate_rows = ['AVG', 'Random Router', 'Max Expert', 'Oracle']
+        aggregate_rows = ['AVG', 'Random Router', 'Max Expert', 'Category Expert', 'Oracle']
 
         # Determine final row order
         ordered_rows = []
