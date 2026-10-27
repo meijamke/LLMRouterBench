@@ -189,6 +189,8 @@ results/Avengers_pro
 results/Avengers_pro_bak
 results/bench_bak
 results/edge_*.csv
+results/device_llm_router*.csv
+results/devllmr_*.csv
 
 # LiveCodeBench dataset files - download separately using instructions in data/LiveCodeBench/README.md
 data/LiveCodeBench/*.jsonl
