@@ -1,0 +1,39 @@
+# LLMRouterBench 端侧路由评估 · 3 模型池采集配置（只采新增的端侧大模型 Qwen3.5-9B）
+# 运行：python -m data_collector.cli run config/edge_router_3model.yaml -y
+# 说明：DeepSeek-V4.1-Flash（云侧）与 Qwen3.5-4B 的答案矩阵上一轮已采好；
+#       Qwen3.5-4B 本轮角色是"分类器"（判断难易），由 tools/run_xrouter_classifier.py 单独打档，不走本采集。
+
+models:
+  - name: Qwen3.5-9B                    # 端侧大模型：本地回答
+    api_model_name: Qwen/Qwen3.5-9B
+    base_url: https://api.siliconflow.cn/v1
+    api_key: SILICONFLOW_API_KEY
+    generator_type: direct
+    extra_body:
+      enable_thinking: false
+    pricing:
+      prompt_price_per_million: 0.20      # 估算，评估端按价格表重算
+      completion_price_per_million: 0.80
+
+datasets:
+  - dataset_id: gpqa
+    splits: [test]
+  - dataset_id: mmlupro
+    splits: [test]
+  - dataset_id: math500
+    splits: [test]
+  - dataset_id: arcc
+    splits: [test]
+  - dataset_id: gsm8k
+    splits: [test]
+  - dataset_id: mmlu
+    splits: [test]
+
+run:
+  kind: bench
+  output_dir: results
+  overwrite: false
+  concurrency: 8
+  log_level: INFO
+  demo_mode: false
+  demo_limit: 10
