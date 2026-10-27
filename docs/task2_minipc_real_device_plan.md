@@ -75,7 +75,7 @@
 1. 接入：`hdc list targets` 拿到两台序列号（聊天端、算力端）。
 2. 起日志：`hdc -t <算力端序列号> shell hilog -T NearbyChat` 实时抓取。
 3. 灌题：通过聊天端逐题输入（或 `hdc shell uinput` 脚本化点击/输入），每题记录：
-   - 端侧受理→完成耗时（`le-write-start` → 推理完成日志）；
+   - 端侧**首字 TTFT**（`infer output ... elapsedMs`，`tools/parse_nearby_timing.py` 已可解析）；
    - 该题是否走端侧（`XRouter.reason` 日志 `rule=within_local_capability` / `escalate_cloud`）。
 4. 汇总：延迟中位数（多次取，抗抖动）→ 覆写对应题目的 `record.cost`。
 5. 出图：`tools/eval_device_llm_router.py` 用新 cost 重算帕累托。
