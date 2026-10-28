@@ -42,8 +42,8 @@ ENDPOINT = "https://api.siliconflow.cn/v1/chat/completions"
 PREVIEW_CHARS = 6000
 MAX_TOKENS = 2048
 CANONICAL_MODEL = "DeepSeek-V4.1-Flash"
-TIMEOUT = 120
-RETRIES = 3
+TIMEOUT = 300
+RETRIES = 5
 
 
 def load_api_key() -> str:
@@ -94,7 +94,7 @@ def classify_one(question_text: str, api_key: str) -> dict:
             break
         except Exception:
             if attempt < RETRIES - 1:
-                time.sleep(4 + attempt * 8)
+                time.sleep(8 + attempt * 20)
     else:
         return {"tier": heuristic, "source": "heuristic_fallback",
                 "prompt_tokens": 0, "completion_tokens": 0}
