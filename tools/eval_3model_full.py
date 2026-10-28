@@ -78,7 +78,9 @@ def main() -> None:
         key = (r.dataset_id, r.record_index)
         qs[key][r.model_name] = r
         if r.model_name == CLOUD_MODEL:
-            meta[key] = r.origin_query or r.prompt
+            # LLMRouterBench 路由基线统一用 record.prompt（完整题干+选项）作为路由输入；
+            # origin_query 对 MCQ 只是题干（缺选项），会低估长度/难度。启发式据此重新评估。
+            meta[key] = r.prompt or r.origin_query
         if (r.category or "").strip():
             cat[key] = r.category.strip()
 

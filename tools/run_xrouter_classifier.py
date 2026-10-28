@@ -111,7 +111,8 @@ def load_questions():
     records = [r for r in loader.load_all_records() if r.model_name == CANONICAL_MODEL]
     seen = {}
     for r in records:
-        seen.setdefault((r.dataset_id, r.record_index), r.origin_query or r.prompt)
+        # LLMRouterBench 路由基线统一用 record.prompt（完整题干+选项）作分类输入
+        seen.setdefault((r.dataset_id, r.record_index), r.prompt or r.origin_query)
     return seen
 
 

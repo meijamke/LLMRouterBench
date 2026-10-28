@@ -61,7 +61,7 @@ def load_questions(records):
             continue
         key = (r.dataset_id, r.record_index)
         questions[key][r.model_name] = r
-        meta.setdefault(key, r.origin_query or r.prompt)
+        meta.setdefault(key, r.prompt or r.origin_query)
     return questions, meta
 
 
