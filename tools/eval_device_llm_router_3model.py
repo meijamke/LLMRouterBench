@@ -38,11 +38,11 @@ LOCAL_MODEL = "Qwen3.5-9B"            # 端侧大模型（本地回答）
 CLOUD_MODEL = "DeepSeek-V4.1-Flash"   # 云侧模型
 CLASSIFIER_MODEL = "Qwen3.5-4B"       # 端侧小模型（难度裁判）
 
-# 硅基流动计费（¥ / 百万 token）。4B/9B 为估算，deepseek 已核对低价时段。
+# 硅基流动真实单价（¥ / 百万 token），2026-10-28 查自 https://www.siliconflow.cn/pricing
 PRICES = {
-    LOCAL_MODEL: {"in": 0.20, "out": 0.80},
-    CLOUD_MODEL: {"in": 2.00, "out": 8.00},
-    CLASSIFIER_MODEL: {"in": 0.10, "out": 0.40},
+    LOCAL_MODEL: {"in": 1.50, "out": 12.00},       # Qwen3.5-9B
+    CLOUD_MODEL: {"in": 2.00, "out": 8.00},        # DeepSeek-V4.1-Flash（0-2点/8-24点档）
+    CLASSIFIER_MODEL: {"in": 0.00, "out": 0.00},   # Qwen3.5-4B（免费）
 }
 
 
