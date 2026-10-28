@@ -99,7 +99,7 @@ class BaselineDataLoader:
     def _should_skip_file(self, file_path: Path) -> bool:
         """Check if a result file should be skipped based on filters."""
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
             # Skip demo results if configured
@@ -234,7 +234,7 @@ class BaselineDataLoader:
 
         for file_path in result_files:
             try:
-                with open(file_path, 'r') as f:
+                with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
 
                 dataset_id = data['dataset_name']

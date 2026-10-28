@@ -9,7 +9,7 @@
   单模型（5）、AVG（宏观平均）、Random（均匀随机期望）、MaxExpert（每数据集最优静态分表）、
   Category Expert / subjectCategory（每 subject 最优静态分表）、Oracle（每题最优上界）
 
-XRouter（3 角色）：4B 难度分类器 + 9B 端侧回答 + DeepSeek 云侧回答；启发式/LLM 两套分类。
+XRouter（3 角色）：4B 难度分类器 + 14B 端侧回答 + DeepSeek 云侧回答；启发式/LLM 两套分类。
 
 产出：3 张图 + results/devllmr_3model_full.csv（逐题启发式/LLM 决策）
 """
@@ -29,7 +29,7 @@ from baselines.device_llm_router import classify_heuristic, TIER_ORDER  # noqa: 
 
 EDGE_MODELS = {"Qwen3.5-4B", "Qwen3-8B", "Qwen3-14B", "Qwen3.5-9B"}
 CLOUD_MODEL = "DeepSeek-V4.1-Flash"
-LOCAL_MODEL = "Qwen3.5-9B"
+LOCAL_MODEL = "Qwen3-14B"
 ALL_MODELS = sorted(EDGE_MODELS | {CLOUD_MODEL})
 CAPABILITY = "MEDIUM"
 TIER_CN = {"SIMPLE": "简单", "MEDIUM": "中等", "COMPLEX": "复杂",
@@ -69,7 +69,7 @@ def main() -> None:
     args = ap.parse_args()
 
     loader = BaselineDataLoader(config_path=str(ROOT / args.config))
-    records = loader.load_all_records()
+    records = [r for r in loader.load_all_records() if r.model_name in ALL_MODELS]
 
     qs = defaultdict(dict)   # (ds, idx) -> {model: record}
     meta = {}                # (ds, idx) -> origin_query
@@ -148,10 +148,10 @@ def main() -> None:
     ce = category_expert()
     oc = oracle()
     refs = {
-        "端侧 only (9B)": singles[LOCAL_MODEL],
+        "端侧 only (14B)": singles[LOCAL_MODEL],
         "端侧 only (4B)": singles["Qwen3.5-4B"],
         "端侧 only (8B)": singles["Qwen3-8B"],
-        "端侧 only (14B)": singles["Qwen3-14B"],
+        "端侧 only (9B)": singles["Qwen3.5-9B"],
         "云侧 only (DeepSeek)": singles[CLOUD_MODEL],
         "AVG": (avg_acc, avg_cost),
         "Random": (avg_acc, avg_cost),
@@ -190,6 +190,19 @@ def main() -> None:
     h_local = sum(1 for r in rows if r["heur_model"] == LOCAL_MODEL)
     l_local = sum(1 for r in rows if r["llm_model"] == LOCAL_MODEL)
 
+    def _lc_acc(prefix):
+        n_l = n_c = 0
+        c_l = c_c = 0
+        for r in rows:
+            if r[prefix + "_model"] == LOCAL_MODEL:
+                n_l += 1; c_l += r[prefix + "_correct"]
+            else:
+                n_c += 1; c_c += r[prefix + "_correct"]
+        return (c_l / n_l if n_l else 0.0), (c_c / n_c if n_c else 0.0)
+
+    h_loc_acc, h_cld_acc = _lc_acc("heur")
+    l_loc_acc, l_cld_acc = _lc_acc("llm")
+
     def tier_agg(prefix):
         a = {t: {"local": 0, "cloud": 0, "correct": 0} for t in TIER_ORDER}
         for r in rows:
@@ -222,7 +235,7 @@ def main() -> None:
     print(f"{'方案':<22} {'准确率':>8} {'成本(¥)':>9}  备注")
     print(f"{'X-Router 启发式':<22} {h_acc*100:7.2f}% {h_cost:9.4f}  端侧{h_local}/云侧{n-h_local}")
     print(f"{'X-Router LLM分类':<22} {l_acc*100:7.2f}% {l_cost:9.4f}  端侧{l_local}/云侧{n-l_local}")
-    for name in ("端侧 only (9B)", "端侧 only (4B)", "端侧 only (8B)", "端侧 only (14B)",
+    for name in ("端侧 only (14B)", "端侧 only (4B)", "端侧 only (8B)", "端侧 only (9B)",
                  "云侧 only (DeepSeek)", "AVG", "Random", "MaxExpert", "CategoryExpert", "Oracle"):
         a, c = refs[name]
         print(f"{name:<22} {a*100:7.2f}% {c:9.4f}")
@@ -232,8 +245,17 @@ def main() -> None:
     print("LLM 档位分布:", ", ".join(f"{t}:{l_agg[t]['local']+l_agg[t]['cloud']}" for t in TIER_ORDER))
     print("LLM 分档准确率:", ", ".join(f"{t}:{l_bar[t]*100:.1f}%" for t in TIER_ORDER))
     print("LLM source:", ", ".join(f"{k}:{v}" for k, v in sorted(src.items())))
+    print(f"启发式 端侧准确率 {h_loc_acc*100:.2f}% / 云侧准确率 {h_cld_acc*100:.2f}%")
+    print(f"LLM     端侧准确率 {l_loc_acc*100:.2f}% / 云侧准确率 {l_cld_acc*100:.2f}%")
     if fail_ds:
         print("LLM 失败分数据集:", ", ".join(f"{k}:{v}" for k, v in sorted(fail_ds.items(), key=lambda x: -x[1])))
+    failed_rows = [r for r in rows if r["llm_source"] != "llm"]
+    if failed_rows:
+        print(f"LLM 失败题明细（{len(failed_rows)} 题）：")
+        for r in failed_rows[:50]:
+            print(f"  {r['dataset_id']} idx={r['record_index']} source={r['llm_source']}")
+        if len(failed_rows) > 50:
+            print(f"  ... 共 {len(failed_rows)} 题")
 
     # 落盘逐题明细
     detail = ROOT / "results" / "devllmr_3model_full.csv"
@@ -255,7 +277,7 @@ def main() -> None:
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(12, 4.6))
     loc = [h_agg[t]["local"] for t in TIER_ORDER]
     cl = [h_agg[t]["cloud"] for t in TIER_ORDER]
-    a1.bar(x, loc, color=C_LOCAL, label="端侧 9B（成本0）")
+    a1.bar(x, loc, color=C_LOCAL, label="端侧 14B（成本0）")
     a1.bar(x, cl, bottom=loc, color=C_CLOUD, label="云侧 DeepSeek")
     for i, t in enumerate(TIER_ORDER):
         a1.text(i, loc[i] + cl[i] + 6, f"{loc[i]+cl[i]}", ha="center", fontsize=9)
@@ -280,7 +302,7 @@ def main() -> None:
     (a1, a2), (a3, a4) = axs
     loc = [l_agg[t]["local"] for t in TIER_ORDER]
     cl = [l_agg[t]["cloud"] for t in TIER_ORDER]
-    a1.bar(x, loc, color=C_LOCAL, label="端侧 9B（成本0）")
+    a1.bar(x, loc, color=C_LOCAL, label="端侧 14B（成本0）")
     a1.bar(x, cl, bottom=loc, color=C_CLOUD, label="云侧 DeepSeek")
     for i, t in enumerate(TIER_ORDER):
         a1.text(i, loc[i] + cl[i] + 6, f"{loc[i]+cl[i]}", ha="center", fontsize=9)
@@ -327,10 +349,10 @@ def main() -> None:
     style = {
         "X-Router 启发式": ("D", "#d81b60", "XRouter"),
         "X-Router LLM分类": ("D", "#c2185b", "XRouter"),
-        "端侧 only (9B)": ("o", C_LOCAL, "单模型"),
+        "端侧 only (14B)": ("o", C_LOCAL, "单模型"),
         "端侧 only (4B)": ("o", "#90caf9", "单模型"),
         "端侧 only (8B)": ("o", "#64b5f6", "单模型"),
-        "端侧 only (14B)": ("o", "#42a5f5", "单模型"),
+        "端侧 only (9B)": ("o", "#42a5f5", "单模型"),
         "云侧 only (DeepSeek)": ("^", C_CLOUD, "单模型"),
         "AVG": ("s", "#9e9e9e", "朴素基线"),
         "Random": ("x", "#757575", "朴素基线"),
@@ -339,7 +361,7 @@ def main() -> None:
         "Oracle": ("*", "#00695c", "静态路由上界"),
     }
     pts = [("X-Router 启发式", h_acc, h_cost), ("X-Router LLM分类", l_acc, l_cost)]
-    for name in ("端侧 only (9B)", "端侧 only (4B)", "端侧 only (8B)", "端侧 only (14B)",
+    for name in ("端侧 only (14B)", "端侧 only (4B)", "端侧 only (8B)", "端侧 only (9B)",
                  "云侧 only (DeepSeek)", "AVG", "Random", "MaxExpert", "CategoryExpert", "Oracle"):
         pts.append((name, refs[name][0], refs[name][1]))
     for name, acc, cost in pts:
